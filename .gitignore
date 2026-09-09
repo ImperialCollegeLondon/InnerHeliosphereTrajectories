@@ -1,0 +1,9 @@
+# Cached raw Horizons responses: bulky and fully regenerable
+# (data/trajectories.json is kept so the page can be rebuilt without network).
+data/raw/
+
+# Headless render harness output
+shots/
+
+__pycache__/
+*.pyc

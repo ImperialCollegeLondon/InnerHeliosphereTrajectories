@@ -1,0 +1,1487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Heliospheric Trajectories</title>
+<style>
+/* ---------- themes ----------
+   Dark is the default; light is applied either by an explicit data-theme or by
+   the system preference when the user has left the toggle on "auto".          */
+:root{
+  --bg:#05070e; --stage:radial-gradient(120% 100% at 50% 45%,#0d1424 0%,#080c17 55%,#04060c 100%);
+  --ink:#eaf0fd; --ink-dim:#adbbd6; --ink-faint:#8494b5;
+  --line:rgba(155,180,220,.20); --line-soft:rgba(155,180,220,.10);
+  --panel:rgba(18,25,42,.74); --edge:rgba(155,180,220,.22);
+  --fill:rgba(255,255,255,.07); --fill-hover:rgba(255,255,255,.13);
+  --chrome:linear-gradient(180deg,rgba(14,20,36,.96),rgba(10,15,28,.82));
+  --chrome-foot:linear-gradient(0deg,rgba(14,20,36,.97),rgba(10,15,28,.86));
+  --accent:#6fdcf7; --accent-soft:rgba(111,220,247,.18); --accent-line:rgba(111,220,247,.5);
+  --accent-ink:#d3f4fd; --accent-contrast:#04121a;
+  --track:rgba(155,180,220,.26); --thumb:#f2f6ff;
+  --scrim:rgba(3,5,10,.55); --hatch:rgba(0,0,0,.55); --picker:invert(.75);
+  --sheet-shadow:0 -18px 50px rgba(0,0,0,.6);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --panelw:308px;
+}
+:root[data-theme="light"]{
+  --bg:#eef1f7; --stage:radial-gradient(120% 100% at 50% 45%,#ffffff 0%,#f2f5fa 55%,#e6ebf4 100%);
+  --ink:#111827; --ink-dim:#46536b; --ink-faint:#6a778f;
+  --line:rgba(40,64,110,.20); --line-soft:rgba(40,64,110,.10);
+  --panel:rgba(255,255,255,.86); --edge:rgba(40,64,110,.20);
+  --fill:rgba(40,64,110,.06); --fill-hover:rgba(40,64,110,.12);
+  --chrome:linear-gradient(180deg,rgba(255,255,255,.96),rgba(244,247,251,.86));
+  --chrome-foot:linear-gradient(0deg,rgba(255,255,255,.97),rgba(244,247,251,.88));
+  --accent:#0b7ea8; --accent-soft:rgba(11,126,168,.13); --accent-line:rgba(11,126,168,.45);
+  --accent-ink:#075a79; --accent-contrast:#ffffff;
+  --track:rgba(40,64,110,.22); --thumb:#1f2937;
+  --scrim:rgba(30,41,59,.35); --hatch:rgba(255,255,255,.7); --picker:none;
+  --sheet-shadow:0 -18px 50px rgba(30,41,59,.22);
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){
+    --bg:#eef1f7; --stage:radial-gradient(120% 100% at 50% 45%,#ffffff 0%,#f2f5fa 55%,#e6ebf4 100%);
+    --ink:#111827; --ink-dim:#46536b; --ink-faint:#6a778f;
+    --line:rgba(40,64,110,.20); --line-soft:rgba(40,64,110,.10);
+    --panel:rgba(255,255,255,.86); --edge:rgba(40,64,110,.20);
+    --fill:rgba(40,64,110,.06); --fill-hover:rgba(40,64,110,.12);
+    --chrome:linear-gradient(180deg,rgba(255,255,255,.96),rgba(244,247,251,.86));
+    --chrome-foot:linear-gradient(0deg,rgba(255,255,255,.97),rgba(244,247,251,.88));
+    --accent:#0b7ea8; --accent-soft:rgba(11,126,168,.13); --accent-line:rgba(11,126,168,.45);
+    --accent-ink:#075a79; --accent-contrast:#ffffff;
+    --track:rgba(40,64,110,.22); --thumb:#1f2937;
+    --scrim:rgba(30,41,59,.35); --hatch:rgba(255,255,255,.7); --picker:none;
+    --sheet-shadow:0 -18px 50px rgba(30,41,59,.22);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{
+  background:var(--bg); color:var(--ink); font:13px/1.45 var(--sans);
+  -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%;
+  overscroll-behavior:none;
+}
+button,select,input{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer}
+
+#app{
+  display:grid; height:100dvh;
+  grid-template-columns:1fr var(--panelw);
+  grid-template-rows:auto 1fr auto;
+  grid-template-areas:"head head" "stage panel" "foot foot";
+}
+#app.collapsed{grid-template-columns:1fr 0}
+#app.collapsed #panel{opacity:0;pointer-events:none;transform:translateX(12px)}
+
+/* ---------- header ---------- */
+header{
+  grid-area:head; display:flex; align-items:center; gap:12px;
+  padding:9px 14px; border-bottom:1px solid var(--edge);
+  background:var(--chrome); z-index:5;
+}
+.brand{display:flex;flex-direction:column;min-width:0}
+.brand b{font-size:14px;font-weight:600;letter-spacing:.2px;white-space:nowrap}
+.brand span{font-size:10.5px;color:var(--ink-faint);letter-spacing:.35px;text-transform:uppercase;white-space:nowrap}
+.spacer{flex:1}
+.field{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.field>label{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-faint)}
+select,.btn{
+  background:var(--fill); border:1px solid var(--edge); border-radius:7px;
+  padding:5px 9px; font-size:12.5px; cursor:pointer; transition:background .12s,border-color .12s;
+}
+select:hover,.btn:hover{background:var(--fill-hover)}
+select{-webkit-appearance:none;appearance:none;padding-right:24px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-dim) 50%),linear-gradient(135deg,var(--ink-dim) 50%,transparent 50%);
+  background-position:calc(100% - 13px) 52%,calc(100% - 8px) 52%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.btn.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink)}
+.iconbtn{width:30px;height:30px;display:grid;place-items:center;border-radius:7px;
+  border:1px solid var(--edge);background:var(--fill);font-size:13px;line-height:1}
+.iconbtn:hover{background:var(--fill-hover)}
+.views{display:flex;gap:4px}
+.views .btn{padding:5px 8px;font-size:11.5px}
+
+/* ---------- stage ---------- */
+#stage{grid-area:stage;position:relative;overflow:hidden;background:var(--stage)}
+#scene{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#scene.dragging{cursor:grabbing}
+#hint{
+  position:absolute;left:12px;bottom:10px;font-size:11px;color:var(--ink-faint);
+  pointer-events:none;letter-spacing:.2px
+}
+#zoombar{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:5px}
+#zoombar .btn{padding:4px 7px;font-size:11px;text-align:center;min-width:52px}
+
+/* ---------- panel ---------- */
+#panel{
+  grid-area:panel; overflow-y:auto; overflow-x:hidden;
+  border-left:1px solid var(--edge); background:var(--panel);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  transition:opacity .18s, transform .18s; padding-bottom:14px;
+  scrollbar-width:thin; scrollbar-color:var(--track) transparent;
+}
+#panel::-webkit-scrollbar{width:8px}
+#panel::-webkit-scrollbar-thumb{background:var(--track);border-radius:4px}
+section{padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+section:last-child{border-bottom:0}
+h2{
+  margin:0 0 9px; font-size:10.5px; font-weight:600; letter-spacing:.7px;
+  text-transform:uppercase; color:var(--ink-faint); display:flex; align-items:baseline; gap:6px;
+}
+h2 em{font-style:normal;color:var(--accent);letter-spacing:.3px;text-transform:none;font-size:11px}
+
+/* object list */
+.obj{display:flex;align-items:center;gap:8px;padding:4px 0}
+.obj .sw{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 7px currentColor}
+.obj .nm{flex:1;min-width:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;
+  cursor:pointer;font-size:12.5px}
+.obj.off .nm,.obj.off .sw{opacity:.4}
+.obj .pin{
+  width:26px;height:19px;border-radius:5px;display:grid;place-items:center;flex:none;
+  border:1px solid var(--edge);color:var(--ink-faint);
+  font:600 9px/1 var(--sans);letter-spacing:.7px;text-transform:uppercase
+}
+.obj .pin:hover{background:var(--fill-hover);color:var(--ink)}
+.obj .pin.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink)}
+.obj .eye{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;flex:none;
+  color:var(--ink-faint);font-size:12px}
+.obj .eye:hover{background:var(--fill-hover)}
+
+/* readout */
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+th{font:600 9.5px/1 var(--sans);letter-spacing:.5px;text-transform:uppercase;color:var(--ink-faint);
+  text-align:right;padding:0 0 6px;font-variant-numeric:tabular-nums}
+th:first-child{text-align:left}
+td{padding:3px 0;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td:first-child{text-align:left;font:500 12px/1.3 var(--sans);color:var(--ink)}
+tr.gone td{opacity:.4}
+td .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+sup.pred,.predmark{color:#e08a1e}
+sup.pred{font-size:9px;margin-left:2px}
+:root[data-theme="dark"] sup.pred,:root[data-theme="dark"] .predmark{color:#ffbf6b}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) sup.pred,
+  :root:not([data-theme="light"]) .predmark{color:#ffbf6b}
+}
+
+/* controls */
+.ctl{margin:0 0 11px}
+.ctl:last-child{margin-bottom:0}
+.ctl .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.ctl .top label{font-size:11.5px;color:var(--ink-dim)}
+.ctl .top output{font-family:var(--mono);font-size:11.5px;color:var(--ink)}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:16px;background:none;cursor:pointer
+}
+input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:var(--track)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--thumb);margin-top:-5px;border:0;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+input[type=range]:active::-webkit-slider-thumb{background:var(--accent)}
+input[type=range]::-moz-range-track{height:3px;border-radius:2px;background:var(--track)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radius:50%;background:var(--thumb)}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
+.chk{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12px;color:var(--ink-dim);cursor:pointer}
+.chk input{-webkit-appearance:none;appearance:none;width:13px;height:13px;flex:none;border-radius:4px;
+  border:1px solid var(--edge);background:var(--fill);cursor:pointer;position:relative}
+.chk input:checked{background:var(--accent);border-color:var(--accent)}
+.chk input:checked::after{content:"";position:absolute;left:3.5px;top:1px;width:4px;height:7px;
+  border:solid var(--accent-contrast);border-width:0 1.7px 1.7px 0;transform:rotate(42deg)}
+.chk:hover{color:var(--ink)}
+.about{font-size:11px;color:var(--ink-faint);line-height:1.55}
+.about p{margin:0 0 7px}
+.about b{color:var(--ink-dim);font-weight:600}
+.about code{font-family:var(--mono);font-size:10.5px;color:var(--ink-dim)}
+
+/* ---------- footer / timeline ---------- */
+footer{
+  grid-area:foot; border-top:1px solid var(--edge); padding:8px 14px 12px;
+  background:var(--chrome-foot); z-index:5;
+}
+.tl{display:flex;align-items:center;gap:12px}
+.transport{display:flex;gap:4px;flex:none}
+.transport .iconbtn{width:29px;height:29px;font-size:11px}
+.transport .play{width:34px;background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink)}
+.stamp{flex:none;display:flex;flex-direction:column;line-height:1.2;min-width:132px}
+.stamp b{font-family:var(--mono);font-size:14.5px;font-weight:500;letter-spacing:.3px;white-space:nowrap}
+.stamp span{font-size:10px;color:var(--ink-faint);letter-spacing:.4px;white-space:nowrap}
+.track{flex:1;min-width:60px;position:relative;padding-top:2px}
+#time{width:100%;display:block}
+.ruler{position:relative;height:11px;margin-top:1px}
+.ruler i{position:absolute;top:0;font:9.5px/1 var(--mono);color:var(--ink-faint);
+  transform:translateX(-50%);font-style:normal;white-space:nowrap}
+.ruler i::before{content:"";position:absolute;left:50%;top:-3px;width:1px;height:3px;
+  background:var(--line);transform:translateX(-50%)}
+
+/* full-range overview: coarse scrubbing plus a view of the slider's window */
+.overview{
+  position:relative;height:20px;margin-top:4px;border-radius:5px;
+  background:var(--fill);border:1px solid var(--line-soft);
+  cursor:pointer;touch-action:none;overflow:hidden;transition:border-color .12s
+}
+.overview:hover{border-color:var(--edge)}
+.overview .bars{position:absolute;inset:0;padding:3px 0 0}
+.overview .bar{position:absolute;height:2.5px;border-radius:2px}
+.overview .bar.pred{opacity:.45}
+.overview .bar.pred::after{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,var(--hatch) 0 2px,transparent 2px 5px)}
+#ovwin{position:absolute;top:0;bottom:0;background:var(--accent-soft);
+  border-left:1px solid var(--accent-line);border-right:1px solid var(--accent-line);
+  pointer-events:none;min-width:2px}
+#ovcur{position:absolute;top:0;bottom:0;width:1px;background:var(--ink);
+  pointer-events:none;transform:translateX(-.5px)}
+#ovcur::before{content:"";position:absolute;top:0;left:-3px;width:7px;height:4px;
+  border-radius:1px;background:var(--ink)}
+
+#jump{background:var(--fill);border:1px solid var(--edge);border-radius:7px;
+  padding:4px 7px;font-size:11.5px;color:var(--ink-dim);cursor:pointer;font-family:var(--mono)}
+#jump::-webkit-calendar-picker-indicator{filter:var(--picker);cursor:pointer;opacity:.7}
+
+#sheetBtn{display:none}
+#scrim{display:none}
+
+/* ---------- mobile ---------- */
+@media (max-width:860px){
+  #app{grid-template-columns:1fr;grid-template-areas:"head" "stage" "foot"}
+  #app.collapsed{grid-template-columns:1fr}
+  #panel{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;max-height:72dvh;
+    border-left:0;border-top:1px solid var(--edge);border-radius:16px 16px 0 0;
+    transform:translateY(0);transition:transform .24s cubic-bezier(.3,.8,.3,1);
+    padding-bottom:calc(14px + env(safe-area-inset-bottom));
+    box-shadow:var(--sheet-shadow);
+  }
+  #app.collapsed #panel{opacity:1;pointer-events:auto;transform:translateY(102%)}
+  #panel::before{content:"";display:block;width:36px;height:4px;border-radius:3px;
+    background:var(--track);margin:8px auto 0}
+  #scrim{display:block;position:fixed;inset:0;z-index:15;background:var(--scrim);
+    opacity:1;transition:opacity .2s}
+  #app.collapsed #scrim{opacity:0;pointer-events:none}
+  #sheetBtn{display:grid}
+  .brand span{display:none}
+  .brand b{font-size:13px}
+  header{gap:8px;padding:8px 10px}
+  header .views,header .field.frame>label{display:none}
+  footer{padding:6px 10px calc(8px + env(safe-area-inset-bottom))}
+  .tl{flex-wrap:wrap;gap:8px 10px}
+  .transport{order:1}
+  .stamp{order:2;flex:1 1 auto;min-width:0}
+  footer .field{order:3;margin-left:auto}
+  .track{order:4;flex:0 0 100%}
+  #hint{display:none}
+  .checks{grid-template-columns:1fr 1fr}
+  #zoombar{right:8px;top:8px}
+  #zoombar .btn{padding:6px 8px;min-width:48px}
+  .overview{height:24px}
+  #time{height:26px}
+  input[type=range]::-webkit-slider-thumb{width:17px;height:17px;margin-top:-7px}
+  input[type=range]::-moz-range-thumb{width:17px;height:17px}
+}
+@media (max-width:430px){
+  .stamp b{font-size:13px}
+  #jump{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand"><b>Heliospheric Trajectories</b><span>Solar equatorial frame · JPL Horizons</span></div>
+    <div class="spacer"></div>
+    <div class="field frame">
+      <label for="frame">Fixed longitude</label>
+      <select id="frame"></select>
+    </div>
+    <div class="views">
+      <button class="btn" id="view3d">3-D</button>
+      <button class="btn" id="viewTop">Pole</button>
+      <button class="btn" id="viewSide">Edge-on</button>
+    </div>
+    <button class="iconbtn" id="themeBtn" title="Theme" aria-label="Theme">◐</button>
+    <button class="iconbtn" id="sheetBtn" title="Settings" aria-label="Settings">☰</button>
+    <button class="iconbtn" id="panelBtn" title="Hide panel" aria-label="Hide panel">⇥</button>
+  </header>
+
+  <div id="stage">
+    <canvas id="scene"></canvas>
+    <div id="zoombar">
+      <button class="btn" data-zoom="0.34">0.1 AU</button>
+      <button class="btn" data-zoom="1.05">0.3 AU</button>
+      <button class="btn" data-zoom="3.5">1 AU</button>
+      <button class="btn" data-zoom="5.8">All</button>
+    </div>
+    <div id="hint">drag to rotate · scroll to zoom · space to play</div>
+  </div>
+
+  <div id="scrim"></div>
+
+  <aside id="panel">
+    <section>
+      <h2>Objects <em id="pinNote"></em></h2>
+      <div id="objects"></div>
+    </section>
+
+    <section>
+      <h2>Geometry</h2>
+      <table>
+        <thead><tr><th>Object</th><th>r / AU</th><th id="lonHead">lon</th><th>lat</th></tr></thead>
+        <tbody id="readout"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Display</h2>
+      <div class="ctl">
+        <div class="top"><label for="trail">Trail length</label><output id="trailOut"></output></div>
+        <input type="range" id="trail" min="0" max="120" step="1" value="10">
+      </div>
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="optPlanets" checked>Planets</label>
+        <label class="chk"><input type="checkbox" id="optGrid" checked>Grid</label>
+        <label class="chk"><input type="checkbox" id="optLabels" checked>Labels</label>
+        <label class="chk"><input type="checkbox" id="optStems" checked>Latitude stems</label>
+        <label class="chk"><input type="checkbox" id="optPaths">Full paths</label>
+        <label class="chk" id="starsChk"><input type="checkbox" id="optStars" checked>Starfield</label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Connectivity</h2>
+      <div class="ctl">
+        <div class="top"><label for="conn">Sun-to-spacecraft line</label></div>
+        <select id="conn" style="width:100%">
+          <option value="none">None</option>
+          <option value="radial">Radial</option>
+          <option value="spiral">Parker spiral</option>
+        </select>
+      </div>
+      <div class="ctl" id="vswCtl">
+        <div class="top"><label for="vsw">Solar wind speed</label><output id="vswOut"></output></div>
+        <input type="range" id="vsw" min="200" max="900" step="10" value="400">
+      </div>
+    </section>
+
+    <section class="about">
+      <h2>About</h2>
+      <p><b>Frame.</b> Heliocentric inertial (HCI): the solar equatorial plane, with
+      longitude measured from the ascending node of the solar equator on the J2000
+      ecliptic (<code>i = 7.25°, Ω = 75.76°</code>). Latitude is heliographic.</p>
+      <p><b>Fixed longitude.</b> Choosing an object subtracts its longitude from
+      every object's, so it sits at 0° and the others drift relative to it.
+      Latitudes are never altered. <em>Co-rotating</em> instead fixes the frame to
+      the Sun's 25.38-day sidereal rotation.</p>
+      <p><b>Data.</b> <span id="prov"></span> Sampled daily, refined to 4-hourly and
+      hourly where the objects move fastest, then interpolated with a cubic spline
+      &mdash; good to ~0.01° of longitude through Parker's closest perihelion.
+      Times are UTC (Horizons TDB, offset ~69 s).</p>
+      <p><b><span class="predmark">†</span> Predicted.</b> Beyond the end of an
+      object's SPK its marker is drawn as a dashed ring and its readout carries a
+      <span class="predmark">†</span>; the coverage bars hatch the same stretch.<br>
+      <span id="predNote"></span></p>
+      <p><b>L1</b> is Earth's position moved 1.5 million km sunward; its longitude and
+      latitude are Earth's.</p>
+      <p><b>Fine time control.</b> The <em>range</em> box by the slider sets how much
+      time the slider spans &mdash; from the full 13 years down to 24 hours, so the
+      slider can be as precise as you need. The strip beneath it always shows the
+      whole mission: tap or drag it to jump anywhere, and the highlighted box marks
+      the slider's current window. The <code>◀ ▶</code> buttons step by an amount
+      that follows the range (1 day when zoomed out, down to 5 minutes at 24 hours).</p>
+    </section>
+  </aside>
+
+  <footer>
+    <div class="tl">
+      <div class="transport">
+        <button class="iconbtn" id="toStart" title="Start (Home)">⏮</button>
+        <button class="iconbtn" id="stepBack" title="Back (←)">◀</button>
+        <button class="iconbtn play" id="play" title="Play/pause (space)">▶</button>
+        <button class="iconbtn" id="stepFwd" title="Forward (→)">▶</button>
+      </div>
+      <div class="stamp"><b id="dateText">—</b><span id="dowText"></span></div>
+      <div class="track">
+        <input type="range" id="time" min="0" max="100" step="600" value="0">
+        <div class="ruler" id="ruler"></div>
+        <div class="overview" id="overview" title="Whole mission — tap or drag to scrub">
+          <div class="bars" id="bars"></div>
+          <div id="ovwin"></div>
+          <div id="ovcur"></div>
+        </div>
+      </div>
+      <div class="field">
+        <input type="date" id="jump" title="Jump to date">
+        <select id="span" title="Slider range — shorten it for fine control"></select>
+        <select id="speed" title="Playback speed">
+          <option value="0.25">¼ d/s</option>
+          <option value="1">1 d/s</option>
+          <option value="3" selected>3 d/s</option>
+          <option value="10">10 d/s</option>
+          <option value="30">30 d/s</option>
+          <option value="90">90 d/s</option>
+        </select>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script id="payload" type="application/json">/*__DATA__*/</script>
+<script>
+"use strict";
+(function(){
+const RAD = Math.PI/180, DEG = 180/Math.PI;
+const AU_KM = 149597870.7;
+const SUN_RADIUS_AU = 695700/AU_KM;
+const CARRINGTON_DAYS = 25.38;                 // sidereal solar rotation
+const OMEGA_SUN = 360/CARRINGTON_DAYS;         // deg/day
+const EPOCH_MS = Date.UTC(2018,0,1);
+
+/* ------------------------------------------------------------------ data */
+const RAW = JSON.parse(document.getElementById('payload').textContent);
+
+function bytesFromBase64(s){
+  const bin = atob(s), out = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+// Inverse of the builder's encoding: base64 -> LEB128 varints -> zigzag ->
+// second-order differences -> scaled integers.
+function decodeSeries(blob, count, scale){
+  const bytes = bytesFromBase64(blob), out = new Float64Array(count);
+  let p = 0, previous = 0, delta = 0;
+  for(let i=0;i<count;i++){
+    let value = 0, shift = 1, byte;
+    do { byte = bytes[p++]; value += (byte & 0x7f) * shift; shift *= 128; } while(byte & 0x80);
+    const residual = (value % 2) ? -(value+1)/2 : value/2;
+    let current;
+    if(i === 0){ current = residual; }
+    else if(i === 1){ delta = residual; current = previous + delta; }
+    else { delta += residual; current = previous + delta; }
+    out[i] = current/scale;
+    previous = current;
+  }
+  return out;
+}
+
+// Object colours per theme: the dark set is luminous on near-black, the light
+// set is darkened and saturated so it still reads on near-white.
+const PALETTE = {
+  dark:{solo:'#ffb454', psp:'#ff6b7a', l1:'#4fd2ff', bepi:'#c295ff', stereoa:'#4ade80',
+        mercury:'#a7b2c4', venus:'#dcc99c', mars:'#d68a67'},
+  light:{solo:'#c26a00', psp:'#d3123f', l1:'#0369a1', bepi:'#7231d4', stereoa:'#047857',
+         mercury:'#5b6779', venus:'#8a6d1f', mars:'#a8471f'}
+};
+
+// Everything the renderer draws that is not an object colour.
+const THEMES = {
+  dark:{
+    ring:'rgba(155,180,220,.17)', ringMain:'rgba(155,180,220,.36)', spoke:'rgba(155,180,220,.11)',
+    gridText:'rgba(182,202,232,.72)', gridText2:'rgba(182,202,232,.60)',
+    star:'#cfdcff', starAlpha:1,
+    labelBg:'rgba(6,9,17,.78)', markerRing:'rgba(255,255,255,.9)',
+    markerHollow:'rgba(8,12,22,.92)',
+    glowAlpha:0.46, stemAlpha:0.36, connAlpha:0.4,
+    pathAlpha:0.26, pathAlphaPlanet:0.17, trailBase:0.10, trailGain:0.80,
+    sunGlow:['rgba(255,238,186,.60)','rgba(255,200,95,.24)','rgba(255,172,62,.08)','rgba(255,160,50,0)'],
+    sunCore:['#fffdf4','#fff0c8','#ffcf7d']
+  },
+  light:{
+    ring:'rgba(40,64,110,.22)', ringMain:'rgba(40,64,110,.42)', spoke:'rgba(40,64,110,.14)',
+    gridText:'rgba(45,64,100,.80)', gridText2:'rgba(45,64,100,.64)',
+    star:'#8fa3c4', starAlpha:0,
+    labelBg:'rgba(255,255,255,.84)', markerRing:'rgba(20,30,50,.6)',
+    markerHollow:'rgba(255,255,255,.96)',
+    glowAlpha:0.2, stemAlpha:0.45, connAlpha:0.5,
+    pathAlpha:0.34, pathAlphaPlanet:0.24, trailBase:0.14, trailGain:0.82,
+    sunGlow:['rgba(255,178,50,.5)','rgba(255,158,40,.2)','rgba(255,145,35,.06)','rgba(255,145,35,0)'],
+    sunCore:['#fffaea','#ffe09a','#f0a032']
+  }
+};
+let T = THEMES.dark;
+
+const OBJECTS = RAW.objects.map(o => {
+  const n = o.n;
+  const obj = {
+    key:o.key, name:o.name, short:o.short, kind:o.kind, note:o.note,
+    predictedNote:o.predictedNote || '',
+    color:PALETTE.dark[o.key] || '#a7b2c4',
+    t:decodeSeries(o.t, n, RAW.scales.t),
+    r:decodeSeries(o.r, n, RAW.scales.r),
+    lon:decodeSeries(o.lon, n, RAW.scales.lon),
+    lat:decodeSeries(o.lat, n, RAW.scales.lat),
+    predictedFrom: ('predictedFrom' in o) ? o.predictedFrom : Infinity,
+    visible:true, path:null
+  };
+  obj.t0 = obj.t[0]; obj.t1 = obj.t[n-1];
+  return obj;
+});
+const BY_KEY = {};
+OBJECTS.forEach(o => BY_KEY[o.key] = o);
+const CRAFT = OBJECTS.filter(o => o.kind === 'spacecraft');
+const PLANETS = OBJECTS.filter(o => o.kind === 'planet');
+
+const T_MIN = 0;
+const T_MAX = Math.max.apply(null, OBJECTS.map(o => o.t1));
+
+/* ------------------------------------------------------------------ theme */
+const store = {
+  get(key, fallback){
+    try { const v = localStorage.getItem('helio.'+key); return v === null ? fallback : v; }
+    catch(e){ return fallback; }
+  },
+  set(key, value){ try { localStorage.setItem('helio.'+key, value); } catch(e){} }
+};
+const systemLight = window.matchMedia ? matchMedia('(prefers-color-scheme:light)') : null;
+function effectiveTheme(){
+  if(state.theme !== 'auto') return state.theme;
+  return systemLight && systemLight.matches ? 'light' : 'dark';
+}
+const THEME_ICON = {auto:'◐', light:'☀', dark:'☾'};
+function applyTheme(){
+  const mode = effectiveTheme();
+  T = THEMES[mode];
+  if(state.theme === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = state.theme;
+  for(const obj of OBJECTS) obj.color = PALETTE[mode][obj.key] || PALETTE[mode].mercury;
+  const themeBtn = document.getElementById('themeBtn');
+  themeBtn.textContent = THEME_ICON[state.theme];
+  themeBtn.title = 'Theme: '+state.theme+(state.theme === 'auto' ? ' ('+mode+')' : '');
+  document.getElementById('starsChk').style.display = mode === 'light' ? 'none' : '';
+  starfield = null;
+  buildObjects();
+  buildReadout();
+  buildBars();
+  setFrame(state.frame);
+  draw();
+}
+
+/* ------------------------------------------------- sampling / interpolation */
+function indexAt(times, x){
+  let lo = 0, hi = times.length-1;
+  if(x <= times[0]) return 0;
+  if(x >= times[hi]) return hi-1;
+  while(hi-lo > 1){ const mid = (lo+hi) >> 1; if(times[mid] <= x) lo = mid; else hi = mid; }
+  return lo;
+}
+// Non-uniform cubic Hermite with central-difference tangents (Catmull-Rom).
+function hermite(times, values, i, x){
+  const h = times[i+1]-times[i], s = (x-times[i])/h;
+  const a = i > 0 ? i-1 : i, b = i+2 < times.length ? i+2 : i+1;
+  const m0 = (values[i+1]-values[a])/(times[i+1]-times[a]);
+  const m1 = (values[b]-values[i])/(times[b]-times[i]);
+  const s2 = s*s, s3 = s2*s;
+  return (2*s3-3*s2+1)*values[i] + (s3-2*s2+s)*h*m0 +
+         (-2*s3+3*s2)*values[i+1] + (s3-s2)*h*m1;
+}
+const sample = {r:0, lon:0, lat:0};
+function sampleAt(obj, t){
+  const i = indexAt(obj.t, t);
+  sample.r = hermite(obj.t, obj.r, i, t);
+  sample.lon = hermite(obj.t, obj.lon, i, t);
+  sample.lat = hermite(obj.t, obj.lat, i, t);
+  return sample;
+}
+function lonAt(obj, t){
+  const clamped = t < obj.t0 ? obj.t0 : (t > obj.t1 ? obj.t1 : t);
+  const i = indexAt(obj.t, clamped);
+  return hermite(obj.t, obj.lon, i, clamped);
+}
+function covers(obj, t){ return t >= obj.t0 && t <= obj.t1; }
+
+/* ------------------------------------------------------------------ state */
+const state = {
+  t: 0,   // set by initialTime() once T_MAX is known
+  frame:'inertial', trailDays:10, playing:false, speed:3,
+  planets:true, grid:true, labels:true, stems:true, paths:false, stars:true,
+  conn:'none', vsw:400, theme:'auto',
+  span:0,        // seconds the slider covers; 0 = the whole window
+  centre:0,      // centre of that slider window
+  cam:{az:-58, el:24, dist:4.0}
+};
+
+function initialTime(){
+  const now = (Date.now()-EPOCH_MS)/1000;
+  if(now > T_MIN && now < T_MAX) return now;
+  return (Date.UTC(2024,11,24)-EPOCH_MS)/1000;   // Parker's closest perihelion
+}
+
+function refLonAt(t){
+  if(state.frame === 'inertial') return 0;
+  if(state.frame === 'corot') return (t/86400)*OMEGA_SUN;
+  const obj = BY_KEY[state.frame];
+  return obj ? lonAt(obj, t) : 0;
+}
+const isRelative = () => state.frame !== 'inertial';
+
+/* ------------------------------------------------------------- projection */
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d');
+const stage = document.getElementById('stage');
+let W = 0, H = 0, DPR = 1;
+const view = {ox:0, oy:0, focal:1, cam:[0,0,0], rt:[0,0,0], up:[0,0,0], fw:[0,0,0]};
+const FOV = 34*RAD, Z_NEAR = 0.008;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  W = stage.clientWidth; H = stage.clientHeight;
+  canvas.width = Math.max(1, Math.round(W*DPR));
+  canvas.height = Math.max(1, Math.round(H*DPR));
+  starfield = null;
+  updateReserved();
+  rulerBounds = null;
+  if(state.centre) syncTimeline(false);
+  draw();
+}
+
+function updateView(){
+  const az = state.cam.az*RAD, el = state.cam.el*RAD, d = state.cam.dist;
+  const cam = [d*Math.cos(el)*Math.cos(az), d*Math.cos(el)*Math.sin(az), d*Math.sin(el)];
+  const fw = [-cam[0]/d, -cam[1]/d, -cam[2]/d];
+  let rt = [fw[1]*1 - fw[2]*0, fw[2]*0 - fw[0]*1, 0];   // fw x (0,0,1)
+  const rn = Math.hypot(rt[0], rt[1], rt[2]) || 1;
+  rt = [rt[0]/rn, rt[1]/rn, rt[2]/rn];
+  const up = [rt[1]*fw[2]-rt[2]*fw[1], rt[2]*fw[0]-rt[0]*fw[2], rt[0]*fw[1]-rt[1]*fw[0]];
+  view.cam = cam; view.fw = fw; view.rt = rt; view.up = up;
+  view.ox = W/2; view.oy = H/2;
+  view.focal = 0.5*Math.min(W, H)/Math.tan(FOV/2);
+}
+
+// world -> camera space (x right, y up, z depth ahead)
+function toCamera(p, out){
+  const dx = p[0]-view.cam[0], dy = p[1]-view.cam[1], dz = p[2]-view.cam[2];
+  out[0] = dx*view.rt[0] + dy*view.rt[1] + dz*view.rt[2];
+  out[1] = dx*view.up[0] + dy*view.up[1] + dz*view.up[2];
+  out[2] = dx*view.fw[0] + dy*view.fw[1] + dz*view.fw[2];
+  return out;
+}
+const _c = [0,0,0];
+function project(p, out){
+  toCamera(p, _c);
+  if(_c[2] <= Z_NEAR) return false;
+  const k = view.focal/_c[2];
+  out[0] = view.ox + _c[0]*k;
+  out[1] = view.oy - _c[1]*k;
+  out[2] = _c[2];
+  return true;
+}
+function sphericalToWorld(r, lonDeg, latDeg, out){
+  const lon = lonDeg*RAD, lat = latDeg*RAD, c = r*Math.cos(lat);
+  out[0] = c*Math.cos(lon); out[1] = c*Math.sin(lon); out[2] = r*Math.sin(lat);
+  return out;
+}
+function pixelsPerAu(){ return view.focal/state.cam.dist; }
+
+// Rectangles occupied by the controls floating over the canvas; grid labels that
+// would land underneath them are dropped rather than drawn into the furniture.
+let reserved = [];
+function updateReserved(){
+  const box = stage.getBoundingClientRect();
+  reserved = ['zoombar','hint'].map(id => {
+    const el = document.getElementById(id);
+    if(!el || !el.offsetParent) return null;
+    const r = el.getBoundingClientRect();
+    return [r.left-box.left-5, r.top-box.top-4, r.right-box.left+5, r.bottom-box.top+4];
+  }).filter(Boolean);
+}
+function blocked(x, y){
+  for(const r of reserved) if(x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]) return true;
+  return false;
+}
+
+/* Polyline with near-plane clipping, in camera space. */
+const _a = [0,0,0], _b = [0,0,0];
+function strokePolyline(points, from, to){
+  ctx.beginPath();
+  let pending = true;
+  for(let i=from; i<to-1; i++){
+    toCamera(points[i], _a); toCamera(points[i+1], _b);
+    let ax = _a[0], ay = _a[1], az = _a[2], bx = _b[0], by = _b[1], bz = _b[2];
+    if(az <= Z_NEAR && bz <= Z_NEAR){ pending = true; continue; }
+    if(az <= Z_NEAR){
+      const f = (Z_NEAR-az)/(bz-az); ax += (bx-ax)*f; ay += (by-ay)*f; az = Z_NEAR; pending = true;
+    } else if(bz <= Z_NEAR){
+      const f = (Z_NEAR-bz)/(az-bz); bx += (ax-bx)*f; by += (ay-by)*f; bz = Z_NEAR;
+    }
+    const k1 = view.focal/az, k2 = view.focal/bz;
+    if(pending){ ctx.moveTo(view.ox+ax*k1, view.oy-ay*k1); pending = false; }
+    ctx.lineTo(view.ox+bx*k2, view.oy-by*k2);
+  }
+  ctx.stroke();
+}
+
+/* ------------------------------------------------------------- background */
+let starfield = null;
+function drawStars(){
+  if(!state.stars || T.starAlpha === 0){ return; }
+  if(!starfield){
+    // Fixed random field, redrawn only on resize; cheap and keeps the frame stable.
+    starfield = [];
+    let seed = 20180101;
+    const rnd = () => (seed = (seed*1103515245 + 12345) & 0x7fffffff)/0x7fffffff;
+    const count = Math.round(W*H/9000);
+    for(let i=0;i<count;i++) starfield.push([rnd()*W, rnd()*H, 0.25+rnd()*0.85, 0.15+rnd()*0.4]);
+  }
+  for(const s of starfield){
+    ctx.globalAlpha = s[3]*T.starAlpha;
+    ctx.fillStyle = T.star;
+    ctx.fillRect(s[0], s[1], s[2], s[2]);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ------------------------------------------------------------------- grid */
+function wrapSigned(a){ const w = ((a+180)%360+360)%360-180; return w === -180 ? 180 : w; }
+
+const RING_POINTS = 144;
+const ringCache = {};
+function ring(radius){
+  if(!ringCache[radius]){
+    const pts = [];
+    for(let i=0;i<=RING_POINTS;i++){
+      const a = i/RING_POINTS*2*Math.PI;
+      pts.push([radius*Math.cos(a), radius*Math.sin(a), 0]);
+    }
+    ringCache[radius] = pts;
+  }
+  return ringCache[radius];
+}
+// Half-width of the view at the target plane, in AU.
+function visibleRadius(){
+  return state.cam.dist*Math.tan(FOV/2)*Math.max(W, H)/Math.min(W, H);
+}
+const NICE_STEPS = [0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2];
+function gridRadii(){
+  const visible = visibleRadius();
+  const wanted = state.planets && BY_KEY.mars.visible ? 1.6 : 1.05;
+  const outer = Math.min(wanted, visible*0.98);
+  const step = NICE_STEPS.find(v => v >= visible/10) || 2;
+  const radii = [];
+  for(let r=step; r<=outer+1e-9; r+=step) radii.push(Math.round(r*1000)/1000);
+  if(!radii.length) radii.push(Math.round(outer*1000)/1000);
+  return radii;
+}
+const _p = [0,0,0], _q = [0,0,0];
+function drawGrid(){
+  if(!state.grid) return;
+  const radii = gridRadii();
+  ctx.lineWidth = 1;
+  for(const r of radii){
+    ctx.strokeStyle = (Math.abs(r-1) < 1e-9) ? T.ringMain : T.ring;
+    const pts = ring(r);
+    strokePolyline(pts, 0, pts.length);
+  }
+  const outer = radii[radii.length-1];
+  ctx.strokeStyle = T.spoke;
+  for(let a=0; a<360; a+=30){
+    sphericalToWorld(radii[0]*0.6, a, 0, _p);
+    sphericalToWorld(outer, a, 0, _q);
+    strokePolyline([_p.slice(), _q.slice()], 0, 2);
+  }
+  if(state.labels){
+    ctx.font = '500 10px '+MONO;
+    ctx.fillStyle = T.gridText;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if(Math.abs(state.cam.el) > 6){
+      for(let a=0; a<360; a+=30){
+        sphericalToWorld(outer*1.06, a, 0, _p);
+        if(project(_p, _q)) gridLabel(formatFrameLon(a)+'°', _q[0], _q[1]);
+      }
+    }
+    ctx.fillStyle = T.gridText2;
+    for(const r of radii){
+      sphericalToWorld(r, 105, 0, _p);
+      if(project(_p, _q))
+        gridLabel(r < 0.1 ? r.toFixed(3) : r.toFixed(r < 1 ? 2 : 1), _q[0], _q[1]);
+    }
+  }
+}
+function formatFrameLon(a){
+  if(!isRelative()) return String(a);
+  const w = wrapSigned(a);
+  return (w > 0 ? '+' : '') + w;
+}
+
+/* -------------------------------------------------------------------- sun */
+function drawSun(){
+  if(!project([0,0,0], _q)) return;
+  const px = Math.max(2.4, SUN_RADIUS_AU*pixelsPerAu());
+  const glow = Math.max(px*7, 26);
+  const g = ctx.createRadialGradient(_q[0], _q[1], 0, _q[0], _q[1], glow);
+  g.addColorStop(0, T.sunGlow[0]);
+  g.addColorStop(0.18, T.sunGlow[1]);
+  g.addColorStop(0.5, T.sunGlow[2]);
+  g.addColorStop(1, T.sunGlow[3]);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(_q[0], _q[1], glow, 0, 6.2832); ctx.fill();
+  const disc = ctx.createRadialGradient(_q[0]-px*0.2, _q[1]-px*0.2, 0, _q[0], _q[1], px);
+  disc.addColorStop(0, T.sunCore[0]);
+  disc.addColorStop(0.65, T.sunCore[1]);
+  disc.addColorStop(1, T.sunCore[2]);
+  ctx.fillStyle = disc;
+  ctx.beginPath(); ctx.arc(_q[0], _q[1], px, 0, 6.2832); ctx.fill();
+}
+
+/* ------------------------------------------------------------------ paths */
+const PATH_MAX = 2600;
+function buildPath(obj){
+  const n = obj.t.length, stride = Math.max(1, Math.ceil(n/PATH_MAX));
+  const pts = [], flags = [];
+  for(let i=0; i<n; i+=stride){
+    const p = [0,0,0];
+    sphericalToWorld(obj.r[i], obj.lon[i]-refLonAt(obj.t[i]), obj.lat[i], p);
+    pts.push(p); flags.push(obj.t[i] >= obj.predictedFrom);
+  }
+  return {pts:pts, pred:flags};
+}
+function invalidatePaths(){ OBJECTS.forEach(o => o.path = null); }
+function drawPaths(){
+  if(!state.paths) return;
+  ctx.lineWidth = 1;
+  for(const obj of OBJECTS){
+    if(!obj.visible || (obj.kind === 'planet' && !state.planets)) continue;
+    if(!obj.path) obj.path = buildPath(obj);
+    ctx.strokeStyle = withAlpha(obj.color, obj.kind === 'planet' ? T.pathAlphaPlanet : T.pathAlpha);
+    strokePolyline(obj.path.pts, 0, obj.path.pts.length);
+  }
+}
+
+/* ----------------------------------------------------------------- trails */
+const TRAIL_BANDS = 28;
+function drawTrail(obj){
+  const days = state.trailDays;
+  if(days <= 0) return;
+  const t1 = Math.min(state.t, obj.t1);
+  const t0 = Math.max(state.t - days*86400, obj.t0);
+  if(t1 <= t0) return;
+  const steps = Math.max(56, Math.min(392, Math.round(days*4)));
+  const pts = [];
+  for(let i=0;i<=steps;i++){
+    const t = t0 + (t1-t0)*i/steps;
+    const s = sampleAt(obj, t);
+    const p = [0,0,0];
+    sphericalToWorld(s.r, s.lon - refLonAt(t), s.lat, p);
+    pts.push(p);
+  }
+  const wide = obj.kind === 'planet' ? 1.1 : 2.1;
+  const per = steps/TRAIL_BANDS;
+  for(let band=0; band<TRAIL_BANDS; band++){
+    const lo = Math.floor(band*per), hi = Math.floor((band+1)*per);
+    if(hi <= lo) continue;
+    const f = (band+0.5)/TRAIL_BANDS;
+    ctx.strokeStyle = withAlpha(obj.color, T.trailBase + T.trailGain*f*f);
+    ctx.lineWidth = 0.5 + wide*f;
+    strokePolyline(pts, lo, Math.min(hi+1, pts.length));
+  }
+}
+
+/* ----------------------------------------------------- connectivity lines */
+function drawConnection(obj, lonDisp, r, lat){
+  if(state.conn === 'none') return;
+  const pts = [];
+  const steps = state.conn === 'spiral' ? 90 : 1;
+  for(let i=0;i<=steps;i++){
+    const s = SUN_RADIUS_AU + (r-SUN_RADIUS_AU)*i/steps;
+    // Field line back to its footpoint: the source rotates by Omega*(r-s)/Vsw
+    // during the radial transit, so the inner part of the line leads in longitude.
+    const lag = state.conn === 'spiral'
+      ? OMEGA_SUN*(r-s)*AU_KM/(state.vsw*86400) : 0;
+    pts.push(sphericalToWorld(s, lonDisp+lag, lat, [0,0,0]));
+  }
+  ctx.strokeStyle = withAlpha(obj.color, T.connAlpha);
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([1,3]);
+  strokePolyline(pts, 0, pts.length);
+  ctx.setLineDash([]);
+}
+
+/* ---------------------------------------------------------------- markers */
+const LABEL_OFFSETS = [0, -15, 15, -30, 30, -45, 45];
+let placedLabels = [];
+function labelClash(x, y, w, h){
+  for(const r of placedLabels)
+    if(x < r[2] && x+w > r[0] && y < r[3] && y+h > r[1]) return true;
+  return false;
+}
+// Centred text, registered so later labels avoid it; skipped if it would fall
+// off the canvas or under the floating controls.
+function gridLabel(text, x, y){
+  if(x < 10 || x > W-10 || y < 10 || y > H-10 || blocked(x, y)) return;
+  const half = ctx.measureText(text).width/2 + 2;
+  if(labelClash(x-half, y-8, half*2, 16)) return;
+  placedLabels.push([x-half, y-8, x+half, y+8]);
+  ctx.fillText(text, x, y);
+}
+function drawMarkers(){
+  const live = [];
+  for(const obj of OBJECTS){
+    if(!obj.visible || (obj.kind === 'planet' && !state.planets)) continue;
+    if(!covers(obj, state.t)) continue;
+    const s = sampleAt(obj, state.t);
+    const lonDisp = s.lon - refLonAt(state.t);
+    const p = sphericalToWorld(s.r, lonDisp, s.lat, [0,0,0]);
+    const scr = [0,0,0];
+    live.push({obj:obj, p:p, scr:scr, r:s.r, lat:s.lat, lonDisp:lonDisp,
+               onScreen:project(p, scr), predicted:state.t >= obj.predictedFrom});
+  }
+  updateReadout(live);
+  const drawn = live.filter(m => m.onScreen).sort((a,b) => b.scr[2]-a.scr[2]);
+
+  // latitude stems down to the equatorial plane
+  if(state.stems){
+    ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+    for(const m of drawn){
+      if(Math.abs(m.lat) < 0.05) continue;
+      const foot = [m.p[0], m.p[1], 0];
+      ctx.strokeStyle = withAlpha(m.obj.color, T.stemAlpha);
+      strokePolyline([m.p, foot], 0, 2);
+      if(project(foot, _q)){
+        ctx.fillStyle = withAlpha(m.obj.color, T.stemAlpha + 0.12);
+        ctx.beginPath(); ctx.arc(_q[0], _q[1], 1.6, 0, 6.2832); ctx.fill();
+      }
+    }
+    ctx.setLineDash([]);
+  }
+  for(const m of drawn) drawConnection(m.obj, m.lonDisp, m.r, m.lat);
+
+  for(const m of drawn){
+    const planet = m.obj.kind === 'planet';
+    const radius = planet ? 3.5 : 5.0;
+    const x = m.scr[0], y = m.scr[1];
+    if(!planet){
+      const g = ctx.createRadialGradient(x, y, 0, x, y, radius*4);
+      g.addColorStop(0, withAlpha(m.obj.color, T.glowAlpha));
+      g.addColorStop(1, withAlpha(m.obj.color, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, radius*4, 0, 6.2832); ctx.fill();
+    }
+    ctx.fillStyle = m.predicted ? T.markerHollow : m.obj.color;
+    ctx.beginPath(); ctx.arc(x, y, radius, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = m.predicted ? m.obj.color : T.markerRing;
+    ctx.lineWidth = m.predicted ? 1.6 : 1.2;
+    if(m.predicted) ctx.setLineDash([2.2,1.8]);
+    ctx.beginPath(); ctx.arc(x, y, radius, 0, 6.2832); ctx.stroke();
+    ctx.setLineDash([]);
+
+    if(state.labels){
+      const label = m.obj.short + (m.predicted ? ' †' : '');
+      ctx.font = planet ? '500 10.5px '+SANS : '600 11.5px '+SANS;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(label).width;
+      let lx = x + radius + 6;
+      if(lx + w > W-6) lx = x - radius - 6 - w;
+      let ly = y;
+      for(const dy of LABEL_OFFSETS){
+        ly = y + dy;
+        if(!labelClash(lx-3, ly-8, w+6, 16)) break;
+      }
+      placedLabels.push([lx-3, ly-8, lx+w+3, ly+8]);
+      if(ly !== y){                                   // show which marker it belongs to
+        ctx.strokeStyle = withAlpha(m.obj.color, 0.35);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(lx-3, ly); ctx.stroke();
+      }
+      ctx.fillStyle = T.labelBg;
+      ctx.fillRect(lx-3, ly-8, w+6, 16);
+      ctx.fillStyle = planet ? withAlpha(m.obj.color, 0.85) : m.obj.color;
+      ctx.fillText(label, lx, ly);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------- draw */
+const SANS = 'ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+const alphaCache = {};
+function withAlpha(hex, a){
+  const key = hex+'|'+a.toFixed(3);
+  let v = alphaCache[key];
+  if(!v){
+    const n = parseInt(hex.slice(1), 16);
+    v = alphaCache[key] = 'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a.toFixed(3)+')';
+  }
+  return v;
+}
+
+let needsDraw = false;
+function draw(){ needsDraw = true; }
+function render(){
+  needsDraw = false;
+  updateView();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  placedLabels = [];
+  drawStars();
+  drawGrid();
+  drawPaths();
+  for(const obj of OBJECTS){
+    if(!obj.visible || (obj.kind === 'planet' && !state.planets)) continue;
+    drawTrail(obj);
+  }
+  drawSun();
+  drawMarkers();
+}
+function frame(){
+  if(state.playing){
+    const now = performance.now();
+    const dt = Math.min(0.1, (now-lastTick)/1000);
+    lastTick = now;
+    let t = state.t + dt*state.speed*86400;
+    if(t > T_MAX){ t = T_MIN; }
+    setTime(t, 'play');
+  }
+  if(needsDraw) render();
+  requestAnimationFrame(frame);
+}
+let lastTick = performance.now();
+
+/* ------------------------------------------------------------------- HUD */
+const readoutBody = document.getElementById('readout');
+const rows = {};
+function buildReadout(){
+  readoutBody.innerHTML = '';
+  for(const obj of OBJECTS){
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td><span class="dot" style="background:'+obj.color+'"></span>'+obj.short+
+      '</td><td class="r">—</td><td class="lo">—</td><td class="la">—</td>';
+    readoutBody.appendChild(tr);
+    rows[obj.key] = tr;
+  }
+}
+function updateReadout(live){
+  const shown = {};
+  if(live) live.forEach(m => shown[m.obj.key] = m);
+  for(const obj of OBJECTS){
+    const tr = rows[obj.key];
+    const hide = (obj.kind === 'planet' && !state.planets) || !obj.visible;
+    tr.style.display = hide ? 'none' : '';
+    const m = shown[obj.key];
+    if(!m){
+      tr.classList.add('gone');
+      const why = !covers(obj, state.t) ? (state.t < obj.t0 ? 'pre-launch' : 'no data') : '—';
+      tr.children[1].textContent = why;
+      tr.children[2].textContent = tr.children[3].textContent = '';
+      continue;
+    }
+    tr.classList.remove('gone');
+    tr.children[1].textContent = m.r.toFixed(3);
+    const lon = isRelative() ? wrapSigned(m.lonDisp) : ((m.lonDisp%360)+360)%360;
+    tr.children[2].textContent = (isRelative() && lon > 0 ? '+' : '')+lon.toFixed(1);
+    tr.children[3].textContent = (m.lat >= 0 ? '+' : '')+m.lat.toFixed(1);
+    tr.children[0].innerHTML = '<span class="dot" style="background:'+obj.color+'"></span>'+
+      obj.short + (m.predicted ? '<sup class="pred">†</sup>' : '');
+  }
+}
+
+const dateText = document.getElementById('dateText');
+const dowText = document.getElementById('dowText');
+const timeSlider = document.getElementById('time');
+const jump = document.getElementById('jump');
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function pad(n){ return n < 10 ? '0'+n : ''+n; }
+// The slider covers `state.span` seconds centred on `state.centre`, so a long
+// mission and a precise time are both reachable.  Dragging the slider must not
+// move its own window; anything else re-centres it.
+function windowBounds(){
+  const full = T_MAX-T_MIN;
+  if(!state.span || state.span >= full) return [T_MIN, T_MAX];
+  let lo = state.centre - state.span/2, hi = state.centre + state.span/2;
+  if(lo < T_MIN){ lo = T_MIN; hi = T_MIN + state.span; }
+  if(hi > T_MAX){ hi = T_MAX; lo = T_MAX - state.span; }
+  return [lo, hi];
+}
+// Step for the arrow buttons and keys, following the slider's range.
+function nudge(){
+  const span = state.span || (T_MAX-T_MIN);
+  if(span <= 2*86400) return 300;
+  if(span <= 8*86400) return 3600;
+  if(span <= 40*86400) return 6*3600;
+  if(span <= 200*86400) return 12*3600;
+  return 86400;
+}
+function setTime(t, source){
+  state.t = Math.max(T_MIN, Math.min(T_MAX, t));
+  if(source === 'slider'){
+    // leave the window where it is
+  } else if(source === 'play'){
+    // Page the window along in jumps rather than tracking every frame, so the
+    // ruler is rebuilt rarely instead of sixty times a second.
+    const b = windowBounds(), span = b[1]-b[0];
+    if(state.t > b[1] - span*0.08) state.centre = state.t + span*0.35;
+    else if(state.t < b[0] + span*0.08) state.centre = state.t - span*0.35;
+  } else {
+    state.centre = state.t;
+  }
+  const d = new Date(EPOCH_MS + state.t*1000);
+  dateText.textContent = pad(d.getUTCDate())+' '+MONTHS[d.getUTCMonth()]+' '+d.getUTCFullYear()+
+    '  '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes());
+  dowText.textContent = DOW[d.getUTCDay()]+' · UTC';
+  const iso = d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());
+  if(jump.value !== iso) jump.value = iso;
+  syncTimeline(source === 'slider');
+  draw();
+}
+
+const overview = document.getElementById('overview');
+const ovwin = document.getElementById('ovwin'), ovcur = document.getElementById('ovcur');
+let rulerBounds = null;
+function syncTimeline(fromSlider){
+  const b = windowBounds(), full = T_MAX-T_MIN;
+  if(!fromSlider){
+    timeSlider.min = String(Math.round(b[0]));
+    timeSlider.max = String(Math.round(b[1]));
+    timeSlider.step = String(Math.max(60, Math.round((b[1]-b[0])/2400)));
+    timeSlider.value = String(Math.round(state.t));
+  }
+  if(!rulerBounds || rulerBounds[0] !== b[0] || rulerBounds[1] !== b[1]){
+    rulerBounds = b;
+    buildRuler(b[0], b[1]);
+  }
+  const zoomed = (b[1]-b[0]) < full-1;
+  ovwin.style.display = zoomed ? 'block' : 'none';
+  if(zoomed){
+    ovwin.style.left = ((b[0]-T_MIN)/full*100)+'%';
+    ovwin.style.width = ((b[1]-b[0])/full*100)+'%';
+  }
+  ovcur.style.left = ((state.t-T_MIN)/full*100)+'%';
+}
+
+/* --------------------------------------------------------------- controls */
+const app = document.getElementById('app');
+const frameSelect = document.getElementById('frame');
+function buildFrameSelect(){
+  const options = [['inertial','Inertial (HCI)']]
+    .concat(CRAFT.map(o => [o.key, o.name]))
+    .concat([['corot','Co-rotating (25.38 d)']]);
+  frameSelect.innerHTML = options
+    .map(o => '<option value="'+o[0]+'">'+o[1]+'</option>').join('');
+  frameSelect.value = state.frame;
+}
+function setFrame(key){
+  state.frame = key;
+  frameSelect.value = key;
+  invalidatePaths();
+  const obj = BY_KEY[key];
+  document.getElementById('pinNote').textContent =
+    obj ? '· fixed to '+obj.short : (key === 'corot' ? '· co-rotating' : '');
+  document.getElementById('lonHead').textContent =
+    obj ? 'Δlon vs '+obj.short : (key === 'corot' ? 'lon (rot)' : 'lon');
+  document.querySelectorAll('.obj .pin').forEach(b =>
+    b.classList.toggle('on', b.dataset.key === key));
+  draw();
+}
+
+const objectsBox = document.getElementById('objects');
+function buildObjects(){
+  objectsBox.innerHTML = '';
+  for(const obj of OBJECTS){
+    const row = document.createElement('div');
+    row.className = 'obj';
+    const pin = obj.kind === 'spacecraft'
+      ? '<button class="pin" data-key="'+obj.key+'" title="Fix '+obj.short+
+        '&rsquo;s longitude">fix</button>' : '<span style="width:26px;flex:none"></span>';
+    row.innerHTML =
+      '<span class="sw" style="background:'+obj.color+';color:'+obj.color+'"></span>'+
+      '<span class="nm" title="'+(obj.note || '')+'">'+obj.name+'</span>'+pin+
+      '<button class="eye" title="Show/hide">'+(obj.visible ? '●' : '○')+'</button>';
+    row.classList.toggle('off', !obj.visible);
+    row.querySelector('.nm').onclick = row.querySelector('.eye').onclick = () => {
+      obj.visible = !obj.visible;
+      row.classList.toggle('off', !obj.visible);
+      row.querySelector('.eye').textContent = obj.visible ? '●' : '○';
+      draw();
+    };
+    const pinBtn = row.querySelector('.pin');
+    if(pinBtn) pinBtn.onclick = () => setFrame(state.frame === obj.key ? 'inertial' : obj.key);
+    objectsBox.appendChild(row);
+  }
+}
+
+function bindToggle(id, key){
+  const el = document.getElementById(id);
+  el.checked = state[key];
+  el.onchange = () => {
+    state[key] = el.checked;
+    if(key === 'stars') starfield = null;
+    draw();
+  };
+}
+
+const trail = document.getElementById('trail'), trailOut = document.getElementById('trailOut');
+function syncTrail(){
+  state.trailDays = +trail.value;
+  trailOut.textContent = state.trailDays === 0 ? 'off' :
+    (state.trailDays === 1 ? '1 day' : state.trailDays+' days');
+  draw();
+}
+const vsw = document.getElementById('vsw'), vswOut = document.getElementById('vswOut');
+function syncVsw(){
+  state.vsw = +vsw.value;
+  vswOut.textContent = state.vsw+' km/s';
+  draw();
+}
+const connSelect = document.getElementById('conn');
+function syncConn(){
+  state.conn = connSelect.value;
+  document.getElementById('vswCtl').style.display = state.conn === 'spiral' ? '' : 'none';
+  draw();
+}
+
+const playBtn = document.getElementById('play');
+function setPlaying(on){
+  state.playing = on;
+  lastTick = performance.now();
+  playBtn.textContent = on ? '❙❙' : '▶';
+  playBtn.classList.toggle('on', on);
+}
+
+function setCamera(az, el){
+  state.cam.az = az; state.cam.el = el; draw();
+}
+function markViewButtons(){
+  const el = state.cam.el;
+  document.getElementById('viewTop').classList.toggle('on', el > 86);
+  document.getElementById('viewSide').classList.toggle('on', Math.abs(el) < 0.6);
+  document.getElementById('view3d').classList.toggle('on', el <= 86 && Math.abs(el) >= 0.6);
+}
+
+/* ------------------------------------------------------------ pointer nav */
+const pointers = new Map();
+let pinchStart = 0, pinchDist = 0;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  canvas.classList.add('dragging');
+  if(pointers.size === 2){
+    const p = [...pointers.values()];
+    pinchDist = Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y);
+    pinchStart = state.cam.dist;
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  const prev = pointers.get(e.pointerId);
+  if(!prev) return;
+  const dx = e.clientX-prev.x, dy = e.clientY-prev.y;
+  prev.x = e.clientX; prev.y = e.clientY;
+  if(pointers.size === 1){
+    state.cam.az -= dx*0.42;
+    state.cam.el = Math.max(-88, Math.min(88, state.cam.el + dy*0.42));
+    markViewButtons();
+    draw();
+  } else if(pointers.size === 2){
+    const p = [...pointers.values()];
+    const d = Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y);
+    if(pinchDist > 4) zoomTo(pinchStart*pinchDist/d);
+  }
+});
+function endPointer(e){
+  pointers.delete(e.pointerId);
+  if(!pointers.size) canvas.classList.remove('dragging');
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomTo(state.cam.dist*Math.exp(e.deltaY*(e.deltaMode === 1 ? 0.05 : 0.0014)));
+}, {passive:false});
+function zoomTo(d){
+  state.cam.dist = Math.max(0.08, Math.min(16, d));
+  draw();
+}
+
+/* ------------------------------------------------------------- timeline UI */
+// Tick intervals from an hour to five years; the shortest one that still gives
+// only a handful of ticks across the current window wins.
+const TICK_STEPS = [
+  {sec:3600}, {sec:3*3600}, {sec:6*3600}, {sec:12*3600},
+  {sec:86400}, {sec:2*86400}, {sec:7*86400},
+  {months:1}, {months:3}, {months:6}, {years:1}, {years:2}, {years:5}
+];
+function tickLength(step){
+  return step.sec || (step.months ? step.months*2629800 : step.years*31557600);
+}
+function tickLabel(step, d){
+  if(step.sec && step.sec < 86400)
+    return d.getUTCHours() === 0 ? pad(d.getUTCDate())+' '+MONTHS[d.getUTCMonth()]
+                                 : pad(d.getUTCHours())+':'+pad(d.getUTCMinutes());
+  if(step.sec) return pad(d.getUTCDate())+' '+MONTHS[d.getUTCMonth()];
+  if(step.months)
+    return d.getUTCMonth() === 0 ? "Jan '"+String(d.getUTCFullYear()).slice(2)
+                                 : MONTHS[d.getUTCMonth()];
+  return "'"+String(d.getUTCFullYear()).slice(2);
+}
+function buildRuler(lo, hi){
+  const ruler = document.getElementById('ruler');
+  ruler.innerHTML = '';
+  const span = hi-lo;
+  const want = Math.max(2, Math.floor((ruler.clientWidth || 400)/68));
+  const step = TICK_STEPS.find(v => tickLength(v) >= span/want) || TICK_STEPS[TICK_STEPS.length-1];
+  const times = [];
+  if(step.sec){
+    for(let t=Math.ceil(lo/step.sec)*step.sec; t<=hi; t+=step.sec) times.push(t);
+  } else {
+    const start = new Date(EPOCH_MS + lo*1000);
+    let year = start.getUTCFullYear(), month = 0;
+    if(step.months) month = Math.ceil(start.getUTCMonth()/step.months)*step.months;
+    else year = Math.ceil(year/step.years)*step.years;
+    for(let guard=0; guard<500; guard++){
+      const t = (Date.UTC(year, month, 1)-EPOCH_MS)/1000;
+      if(t > hi) break;
+      if(t >= lo) times.push(t);
+      if(step.months) month += step.months; else year += step.years;
+    }
+  }
+  for(const t of times){
+    const at = (t-lo)/span;
+    if(at < 0.02 || at > 0.98) continue;
+    const i = document.createElement('i');
+    i.style.left = (at*100)+'%';
+    i.textContent = tickLabel(step, new Date(EPOCH_MS + t*1000));
+    ruler.appendChild(i);
+  }
+}
+function buildBars(){
+  const bars = document.getElementById('bars');
+  bars.innerHTML = '';
+  CRAFT.forEach((obj, i) => {
+    const add = (from, to, pred) => {
+      if(to <= from) return;
+      const b = document.createElement('div');
+      b.className = 'bar'+(pred ? ' pred' : '');
+      b.style.left = (from/T_MAX*100)+'%';
+      b.style.width = ((to-from)/T_MAX*100)+'%';
+      b.style.top = (2 + i*3.2)+'px';
+      b.style.background = obj.color;
+      b.title = obj.name+(pred ? ' (predicted)' : '');
+      bars.appendChild(b);
+    };
+    const cut = Math.min(obj.predictedFrom, obj.t1);
+    add(obj.t0, cut, false);
+    add(cut, obj.t1, true);
+  });
+}
+
+/* ------------------------------------------------------------------- init */
+buildFrameSelect();
+
+const spanSelect = document.getElementById('span');
+const SPANS = [
+  ['0', 'Full range'], [String(5*31557600), '5 years'], [String(2*31557600), '2 years'],
+  [String(31557600), '1 year'], [String(90*86400), '90 days'], [String(30*86400), '30 days'],
+  [String(7*86400), '7 days'], [String(86400), '24 hours']
+];
+spanSelect.innerHTML = SPANS.map(o => '<option value="'+o[0]+'">'+o[1]+'</option>').join('');
+function setSpan(seconds, remember){
+  state.span = seconds;
+  state.centre = state.t;
+  spanSelect.value = String(seconds);
+  rulerBounds = null;
+  const step = nudge();
+  const label = step >= 86400 ? '1 day' : (step >= 3600 ? (step/3600)+' h' : (step/60)+' min');
+  document.getElementById('stepBack').title = 'Back '+label+' (←)';
+  document.getElementById('stepFwd').title = 'Forward '+label+' (→)';
+  if(remember) store.set('span', String(seconds));
+  syncTimeline(false);
+}
+spanSelect.onchange = () => { setPlaying(false); setSpan(+spanSelect.value, true); };
+
+timeSlider.oninput = () => { setPlaying(false); setTime(+timeSlider.value, 'slider'); };
+
+// The overview strip is the coarse control: tap or drag anywhere in the mission.
+function scrubOverview(clientX){
+  const box = overview.getBoundingClientRect();
+  const f = Math.max(0, Math.min(1, (clientX-box.left)/box.width));
+  setTime(T_MIN + f*(T_MAX-T_MIN), 'overview');
+}
+overview.addEventListener('pointerdown', e => {
+  overview.setPointerCapture(e.pointerId);
+  setPlaying(false);
+  scrubOverview(e.clientX);
+});
+overview.addEventListener('pointermove', e => {
+  if(overview.hasPointerCapture(e.pointerId)) scrubOverview(e.clientX);
+});
+
+const themeBtn = document.getElementById('themeBtn');
+const THEME_CYCLE = ['auto','light','dark'];
+themeBtn.onclick = () => {
+  state.theme = THEME_CYCLE[(THEME_CYCLE.indexOf(state.theme)+1) % THEME_CYCLE.length];
+  store.set('theme', state.theme);
+  applyTheme();
+};
+if(systemLight && systemLight.addEventListener)
+  systemLight.addEventListener('change', () => { if(state.theme === 'auto') applyTheme(); });
+
+jump.min = '2018-01-01';
+jump.max = new Date(EPOCH_MS + T_MAX*1000).toISOString().slice(0,10);
+jump.onchange = () => {
+  const parts = jump.value.split('-').map(Number);
+  if(parts.length === 3 && parts[0]) {
+    setPlaying(false);
+    setTime((Date.UTC(parts[0], parts[1]-1, parts[2])-EPOCH_MS)/1000);
+  }
+};
+frameSelect.onchange = () => setFrame(frameSelect.value);
+trail.oninput = syncTrail;
+vsw.oninput = syncVsw;
+connSelect.onchange = syncConn;
+['optPlanets:planets','optGrid:grid','optLabels:labels','optStems:stems',
+ 'optPaths:paths','optStars:stars'].forEach(pair => {
+  const [id, key] = pair.split(':');
+  bindToggle(id, key);
+});
+document.getElementById('speed').onchange = e => { state.speed = +e.target.value; };
+playBtn.onclick = () => setPlaying(!state.playing);
+document.getElementById('toStart').onclick = () => { setPlaying(false); setTime(T_MIN); };
+document.getElementById('stepBack').onclick = () => { setPlaying(false); setTime(state.t-nudge()); };
+document.getElementById('stepFwd').onclick = () => { setPlaying(false); setTime(state.t+nudge()); };
+document.getElementById('view3d').onclick = () => { setCamera(-58, 24); markViewButtons(); };
+document.getElementById('viewTop').onclick = () => { setCamera(state.cam.az, 88); markViewButtons(); };
+document.getElementById('viewSide').onclick = () => { setCamera(state.cam.az, 0); markViewButtons(); };
+document.querySelectorAll('#zoombar .btn').forEach(b => {
+  b.onclick = () => zoomTo(+b.dataset.zoom);
+});
+const togglePanel = () => app.classList.toggle('collapsed');
+document.getElementById('panelBtn').onclick = togglePanel;
+document.getElementById('sheetBtn').onclick = togglePanel;
+document.getElementById('scrim').onclick = togglePanel;
+
+document.addEventListener('keydown', e => {
+  if(/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const big = e.shiftKey ? 10 : 1, unit = e.altKey ? 3600 : nudge();
+  if(e.code === 'Space'){ e.preventDefault(); setPlaying(!state.playing); }
+  else if(e.key === 'ArrowRight'){ setPlaying(false); setTime(state.t + big*unit); }
+  else if(e.key === 'ArrowLeft'){ setPlaying(false); setTime(state.t - big*unit); }
+  else if(e.key === 'Home'){ setPlaying(false); setTime(T_MIN); }
+  else if(e.key === 'End'){ setPlaying(false); setTime(T_MAX); }
+  else if(e.key === '+' || e.key === '='){ zoomTo(state.cam.dist/1.25); }
+  else if(e.key === '-'){ zoomTo(state.cam.dist*1.25); }
+});
+
+document.getElementById('prov').textContent = RAW.source+' Retrieved '+RAW.generated+'.';
+// One line per object whose track runs past the end of its SPK.  These strings
+// are generated by the builder from the data itself.
+document.getElementById('predNote').innerHTML =
+  CRAFT.filter(o => o.predictedNote)
+       .map(o => '<span style="white-space:nowrap">— </span>'+o.predictedNote)
+       .join('<br>');
+
+if(window.innerWidth <= 860) app.classList.add('collapsed');
+new ResizeObserver(resize).observe(stage);
+window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+
+state.theme = store.get('theme', 'auto');
+if(!THEME_ICON[state.theme]) state.theme = 'auto';
+syncTrail(); syncVsw(); syncConn(); markViewButtons();
+applyTheme();                       // also builds the object list, readout and bars
+state.t = state.centre = initialTime();
+const savedSpan = store.get('span', '0');
+setSpan(SPANS.some(o => o[0] === savedSpan) ? +savedSpan : 0, false);
+setTime(state.t);
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

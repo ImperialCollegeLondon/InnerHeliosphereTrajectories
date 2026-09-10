@@ -1,5 +1,9 @@
 # Relative Trajectories
 
+All Claude's work. A simple HTML-based viewer for inner heliosphere spacecraft trajectories. Can lock to the longitude of particulr spacecraft or planets. Should work on desktop or mobile. 
+
+Tim Horbury, 10 Sept 2026. 
+
 Builds a single self-contained HTML page — **`heliotrajectories.html`** (~330 kB, no
 network access once built) — showing the 3-D trajectories of Solar Orbiter, Parker
 Solar Probe, L1/Earth, BepiColombo and STEREO-A in the solar equatorial frame,

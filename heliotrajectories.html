@@ -516,7 +516,7 @@ const OBJECTS = RAW.objects.map(o => {
   return obj;
 });
 const BY_KEY = {};
-OBJECTS.forEach(o => BY_KEY[o.key] = o);
+OBJECTS.forEach((o, i) => { BY_KEY[o.key] = o; o.order = i; });
 const CRAFT = OBJECTS.filter(o => o.kind === 'spacecraft');
 const PLANETS = OBJECTS.filter(o => o.kind === 'planet');
 
@@ -896,6 +896,12 @@ function drawConnection(obj, lonDisp, r, lat){
 
 /* ---------------------------------------------------------------- markers */
 const LABEL_OFFSETS = [0, -15, 15, -30, 30, -45, 45];
+// Markers closer together than this share one label: from April 2027
+// BepiColombo *is* Mercury, and two labels over one pixel used to flicker as
+// the paint order flipped between frames.
+const LABEL_MERGE_PX = 10;
+// Where each label sat last frame, so it stays there while it still fits.
+const labelSlots = {};
 let placedLabels = [];
 function labelClash(x, y, w, h){
   for(const r of placedLabels)
@@ -961,29 +967,81 @@ function drawMarkers(){
     if(m.predicted) ctx.setLineDash([2.2,1.8]);
     ctx.beginPath(); ctx.arc(x, y, radius, 0, 6.2832); ctx.stroke();
     ctx.setLineDash([]);
+  }
+  if(state.labels) drawLabels(drawn);
+}
 
-    if(state.labels){
-      const label = m.obj.short + (m.predicted ? ' †' : '');
-      ctx.font = planet ? '500 10.5px '+SANS : '600 11.5px '+SANS;
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      const w = ctx.measureText(label).width;
-      let lx = x + radius + 6;
-      if(lx + w > W-6) lx = x - radius - 6 - w;
-      let ly = y;
-      for(const dy of LABEL_OFFSETS){
-        ly = y + dy;
-        if(!labelClash(lx-3, ly-8, w+6, 16)) break;
+// One label per cluster of coincident markers.  Two things keep labels still:
+// they are laid out in a fixed object order rather than in paint order, which
+// reverses whenever two markers cross, and each remembers the slot it used
+// last frame and keeps it if it is still free.
+function drawLabels(drawn){
+  const clusters = [];
+  for(const m of drawn.slice().sort((a, b) => a.obj.order - b.obj.order)){
+    const host = clusters.find(c => Math.abs(c.x-m.scr[0]) <= LABEL_MERGE_PX &&
+                                    Math.abs(c.y-m.scr[1]) <= LABEL_MERGE_PX);
+    if(host) host.members.push(m);
+    else clusters.push({x:m.scr[0], y:m.scr[1], members:[m]});
+  }
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for(const c of clusters){
+    const segs = [];
+    let width = 0;
+    for(const m of c.members){
+      const planet = m.obj.kind === 'planet';
+      if(segs.length) segs.push({text:' · ', font:'500 10.5px '+SANS, color:T.gridText2});
+      segs.push({text:m.obj.short + (m.predicted ? ' †' : ''),
+                 font:planet ? '500 10.5px '+SANS : '600 11.5px '+SANS,
+                 color:planet ? withAlpha(m.obj.color, 0.85) : m.obj.color});
+    }
+    for(const seg of segs){
+      ctx.font = seg.font;
+      seg.w = ctx.measureText(seg.text).width;
+      width += seg.w;
+    }
+    const radius = c.members.some(m => m.obj.kind !== 'planet') ? 5.0 : 3.5;
+    const gap = radius + 6;
+    const key = c.members.map(m => m.obj.key).join('+');
+    const was = labelSlots[key];
+    const rightFits = c.x + gap + width <= W-6, leftFits = c.x - gap - width >= 6;
+    // last frame's side first, then to the right of the marker, then the left
+    const sides = [];
+    if(was && (was[0] ? leftFits : rightFits)) sides.push(was[0]);
+    if(rightFits) sides.push(false);
+    if(leftFits) sides.push(true);
+    sides.push(false);
+    let slot = null, lx = 0, ly = c.y;
+    for(const flip of sides){
+      const x0 = flip ? c.x - gap - width : c.x + gap;
+      const tries = was && was[0] === flip
+        ? [LABEL_OFFSETS[was[1]]].concat(LABEL_OFFSETS) : LABEL_OFFSETS;
+      for(const dy of tries){
+        if(labelClash(x0-3, c.y+dy-8, width+6, 16)) continue;
+        slot = [flip, LABEL_OFFSETS.indexOf(dy)];
+        lx = x0; ly = c.y + dy;
+        break;
       }
-      placedLabels.push([lx-3, ly-8, lx+w+3, ly+8]);
-      if(ly !== y){                                   // show which marker it belongs to
-        ctx.strokeStyle = withAlpha(m.obj.color, 0.35);
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(lx-3, ly); ctx.stroke();
-      }
-      ctx.fillStyle = T.labelBg;
-      ctx.fillRect(lx-3, ly-8, w+6, 16);
-      ctx.fillStyle = planet ? withAlpha(m.obj.color, 0.85) : m.obj.color;
-      ctx.fillText(label, lx, ly);
+      if(slot) break;
+    }
+    if(!slot){ slot = [false, 0]; lx = c.x + gap; ly = c.y; }   // nowhere free
+    labelSlots[key] = slot;
+    placedLabels.push([lx-3, ly-8, lx+width+3, ly+8]);
+    if(ly !== c.y){                                 // show which marker it belongs to
+      ctx.strokeStyle = withAlpha(c.members[0].obj.color, 0.35);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(slot[0] ? lx+width+3 : lx-3, ly);
+      ctx.stroke();
+    }
+    ctx.fillStyle = T.labelBg;
+    ctx.fillRect(lx-3, ly-8, width+6, 16);
+    let tx = lx;
+    for(const seg of segs){
+      ctx.font = seg.font;
+      ctx.fillStyle = seg.color;
+      ctx.fillText(seg.text, tx, ly);
+      tx += seg.w;
     }
   }
 }
@@ -1152,15 +1210,20 @@ const app = document.getElementById('app');
 const frameSelect = document.getElementById('frame');
 function buildFrameSelect(){
   const options = [['inertial','Inertial (HCI)']]
-    .concat(CRAFT.map(o => [o.key, o.name]))
-    .concat([['corot','Co-rotating (25.38 d)']]);
+    .concat(CRAFT.map(o => [o.key, o.name]));
+  // Planets are fixed from their own `fix` button rather than the menu, which
+  // would otherwise get crowded; whichever one is active still gets an entry,
+  // so the menu never disagrees with the frame.
+  const planet = BY_KEY[state.frame];
+  if(planet && planet.kind === 'planet') options.push([planet.key, planet.name]);
+  options.push(['corot','Co-rotating (25.38 d)']);
   frameSelect.innerHTML = options
     .map(o => '<option value="'+o[0]+'">'+o[1]+'</option>').join('');
   frameSelect.value = state.frame;
 }
 function setFrame(key){
   state.frame = key;
-  frameSelect.value = key;
+  buildFrameSelect();
   invalidatePaths();
   const obj = BY_KEY[key];
   document.getElementById('pinNote').textContent =
@@ -1178,9 +1241,8 @@ function buildObjects(){
   for(const obj of OBJECTS){
     const row = document.createElement('div');
     row.className = 'obj';
-    const pin = obj.kind === 'spacecraft'
-      ? '<button class="pin" data-key="'+obj.key+'" title="Fix '+obj.short+
-        '&rsquo;s longitude">fix</button>' : '<span style="width:26px;flex:none"></span>';
+    const pin = '<button class="pin" data-key="'+obj.key+'" title="Fix '+obj.short+
+      '&rsquo;s longitude">fix</button>';
     row.innerHTML =
       '<span class="sw" style="background:'+obj.color+';color:'+obj.color+'"></span>'+
       '<span class="nm" title="'+(obj.note || '')+'">'+obj.name+'</span>'+pin+
@@ -1193,9 +1255,26 @@ function buildObjects(){
       draw();
     };
     const pinBtn = row.querySelector('.pin');
-    if(pinBtn) pinBtn.onclick = () => setFrame(state.frame === obj.key ? 'inertial' : obj.key);
+    if(pinBtn) pinBtn.onclick = () => {
+      const fixing = state.frame !== obj.key;
+      // Fixing the frame to something you cannot see is only confusing, so
+      // switch the reference object on if it is hidden.
+      if(fixing && (!obj.visible || (obj.kind === 'planet' && !state.planets))){
+        obj.visible = true;
+        if(obj.kind === 'planet') setPlanets(true);
+        buildObjects();
+      }
+      setFrame(fixing ? obj.key : 'inertial');
+    };
     objectsBox.appendChild(row);
   }
+}
+
+// The Planets checkbox is also driven by pinning a planet's longitude.
+function setPlanets(on){
+  state.planets = on;
+  const el = document.getElementById('optPlanets');
+  if(el) el.checked = on;
 }
 
 function bindToggle(id, key){

@@ -100,6 +100,20 @@ SCENARIOS = {
       tr.dispatchEvent(new Event('input'));
       document.getElementById('sheetBtn');
     """),
+    "fixed-mercury": (1440, 900, """
+      document.querySelector('.obj .pin[data-key="mercury"]').click();
+      const tr=document.getElementById('trail'); tr.value='88';
+      tr.dispatchEvent(new Event('input'));
+      document.getElementById('viewTop').click();
+      document.querySelector('[data-zoom="1.05"]').click();
+    """),
+    "bepi-at-mercury": (1440, 900, """
+      const j=document.getElementById('jump'); j.value='2027-06-01';
+      j.dispatchEvent(new Event('change'));
+      const tr=document.getElementById('trail'); tr.value='30';
+      tr.dispatchEvent(new Event('input'));
+      document.querySelector('[data-zoom="1.05"]').click();
+    """),
     "narrow": (500, 900, ""),
     "narrow-panel": (500, 900, "document.getElementById('sheetBtn').click();"),
     "tablet": (820, 1180, ""),

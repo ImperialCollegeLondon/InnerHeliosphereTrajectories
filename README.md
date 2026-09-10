@@ -12,11 +12,12 @@ Light and dark themes, following the system preference unless you override it.
 
 | | |
 |---|---|
-| **Fixed longitude** | Header dropdown, or the `fix` button beside any spacecraft. The chosen object is pinned at 0° longitude and everything else drifts relative to it. Latitudes are never touched. `Inertial (HCI)` is the unrotated frame; `Co-rotating` fixes the frame to the Sun's 25.38-day sidereal rotation. |
+| **Fixed longitude** | The `fix` button beside any object in the list — planets included — or the header dropdown. The chosen object is pinned at 0° longitude and everything else drifts relative to it. Latitudes are never touched. `Inertial (HCI)` is the unrotated frame; `Co-rotating` fixes the frame to the Sun's 25.38-day sidereal rotation. The dropdown lists the spacecraft only, to stay short; a pinned planet appears in it while it is the active frame. |
 | **Time** | Slider, `◀`/`▶` step buttons, the date box, or the arrow keys (`⇧` = ten steps, `⌥`/`alt` = 1 hour). Space plays/pauses; playback speed is selectable from ¼ to 90 days/s. |
 | **Precision** | The **range** box sets how much time the slider spans — full window, 5/2/1 years, 90/30/7 days or 24 hours — so the slider is as fine as you need (a 24-hour range is about a minute per pixel on a phone). The strip beneath the slider always shows the whole mission: tap or drag it to jump anywhere, and the highlighted box marks the slider's window. `◀`/`▶` step by an amount that follows the range, from 1 day down to 5 minutes. Your choice is remembered. |
 | **Theme** | The header button cycles **auto → light → dark** (auto follows the operating system). Remembered between visits. |
 | **Trails** | 0–120 days, from the Display section. Trails are computed *in the current frame*, so in a fixed-longitude frame they show genuine relative motion. |
+| **Labels** | Markers within ten pixels of one another share a single label naming each of them, so BepiColombo reads as `Bepi · Mercury` once it is in orbit there. Labels are placed in a fixed object order rather than in depth order, and each keeps last frame's position while it remains free, so they stay put during playback. |
 | **View** | Drag to rotate, scroll or pinch to zoom, `+`/`-` keys. `Pole` looks down the solar rotation axis, `Edge-on` sits in the solar equator. Zoom presets on the right run from 0.1 AU (Parker perihelion) to the full field. |
 | **Connectivity** | Optional radial line or nominal Parker spiral from each spacecraft back to the Sun, with an adjustable solar wind speed (200–900 km/s). |
 | **Coverage bars** | The coloured bars in the overview strip show each spacecraft's data span; hatched portions are predicted (see below). |
@@ -111,6 +112,7 @@ python3 src/build_data.py     # download from Horizons -> data/trajectories.json
 python3 src/build_page.py     # encode + inject into src/template.html -> heliotrajectories.html
 python3 src/validate.py       # interpolation accuracy, extension back-tests, continuity
 python3 src/shoot.py          # headless screenshots of the UI (needs Edge/Chrome)
+python3 src/labelcheck.py     # label stability while time runs (needs Edge/Chrome)
 ```
 
 No third-party packages; standard library only. Raw Horizons responses are cached
@@ -128,3 +130,4 @@ Horizons and clamped per object.
 | `src/build_page.py` | compact encoder + page assembly |
 | `src/validate.py` | checks against independent Horizons fetches |
 | `src/shoot.py` | headless render harness |
+| `src/labelcheck.py` | steps the slider frame by frame and reports labels that jump |

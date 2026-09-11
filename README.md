@@ -1,6 +1,6 @@
 # Relative Trajectories
 
-All Claude's work. A simple HTML-based viewer for inner heliosphere spacecraft trajectories. Can lock to the longitude of particulr spacecraft or planets. Should work on desktop or mobile. 
+All Claude's work. A simple HTML-based viewer for inner heliosphere spacecraft trajectories. Can lock to the longitude of particular spacecraft or planets. Should work on desktop or mobile. Trajectory data sourced from NASA's JPL Horizons API. 
 
 Tim Horbury, 10 Sept 2026. 
 
